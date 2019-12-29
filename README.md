@@ -17,13 +17,17 @@ Background
 ==========
 This package solves multiple linear systems, i.e. $$\mathbf{A}_j \mathbf{x}_j = \mathbf{b}_j$$, where $$\mathbf{A}_j$$ are sparse matrices with the same sparsity pattern.
 
-Here are some useful resources:
+Here are some resources which have been very useful in writing GBQsparse:
 
-[Example of Batched QR factorization](https://devblogs.nvidia.com/parallel-direct-solvers-with-cusolver-batched-qr/)
+[High-level discussion of Batched QR factorization](https://devblogs.nvidia.com/parallel-direct-solvers-with-cusolver-batched-qr/)
 
+[C++ CUDA examples](https://docs.nvidia.com/cuda/cusolver/index.html)
 
+[SKCUDA examples](https://scikit-cuda.readthedocs.io/en/latest/_modules/skcuda/cusolver.html)
 
+[StackOverflow #1](https://stackoverflow.com/questions/30460074/interfacing-cusolver-sparse-using-pycuda)
 
+[GitHub Issue #1](https://github.com/lebedov/scikit-cuda/issues/184)
 
 Example
 ========

@@ -209,7 +209,7 @@ class MSparse(object):
    #print('status: ' + str(status))
    status = _libcusparse.cusparseDestroy(cusp_handle)
    #print('status: ' + str(status))
-   #return np.reshape(dx,(n,nbatch))
+  
    
    return dx.reshape((self.nbatch,self.shape[0])),b2.value
 

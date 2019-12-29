@@ -6,7 +6,7 @@ Batched QR factorization of sparse matrices on GPUs. Wrapper of the CUDA library
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1AQzt8f7Hy2kxgCSdqsD1nOIzH4bjK_n4)
 
-
+INSTALL
 ========
 
 ```bash
@@ -15,7 +15,7 @@ pip install GBQsparse
 
 Background
 ==========
-This package solves multiple linear systems, i.e. $\mathbf{A}_j \mathbf{x}_j = \mathbf{b}_j$, where $\mathbf{A}_j$ are sparse matrices with the same sparsity pattern.
+This package solves multiple linear systems, i.e. $A_j x_j = b_j$, where $A_j$ are sparse matrices with the same sparsity pattern.
 
 Here are some resources which have been very useful in writing GBQsparse:
 
@@ -34,7 +34,8 @@ Example
 
 ```python
 
-S = MSparse() #This is a class that handle multiple CSR-formetted sparse matrices with the same sparsity pattern
+#This is a class that handles multiple CSR-formetted sparse matrices with the same sparsity pattern
+S = MSparse() 
 
 #Here we prepare the master matrix, i.e. the one that dictates the sparsity pattern
 N = 100
@@ -43,8 +44,7 @@ indices = A.indices
 indptr = A.indptr
 na = len(A.data)
  
-#We create 100 matrices and 100 b
-
+#We create 100 random matrices and ``b'' s
 nbatch = 100
 data = np.random.random_sample((nbatch,na))
 for n in range(nbatch):

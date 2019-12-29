@@ -10,8 +10,7 @@ Batched QR factorization of sparse matrices on GPUs. Wrapper of the CUDA library
 Example
 ========
 
-.. code-block:: python
-
+```python
  N = 100
  A = random(N, N, density=0.1,format='csr')
 
@@ -30,4 +29,4 @@ Example
  x,mem = S.inv()
  print(x)
  print(mem/1024/1024)
- 
+ ```

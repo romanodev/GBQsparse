@@ -15,7 +15,7 @@ pip install GBQsparse
 
 Background
 ==========
-This package solves multiple linear systems, i.e. $$\mathbf{A}_j \mathbf{x}_j = \mathbf{b}_j$$, where $$\mathbf{A}_j$$ are sparse matrices with the same sparsity pattern.
+This package solves multiple linear systems, i.e. $\mathbf{A}_j \mathbf{x}_j = \mathbf{b}_j$, where $\mathbf{A}_j$ are sparse matrices with the same sparsity pattern.
 
 Here are some resources which have been very useful in writing GBQsparse:
 
@@ -33,22 +33,27 @@ Example
 ========
 
 ```python
- N = 100
- A = random(N, N, density=0.1,format='csr')
 
- indices = A.indices
- indptr = A.indptr
- na = len(A.data)
- nbatch = 100
- S = MSparse()
- data = np.random.random_sample((nbatch,na))
- for n in range(nbatch):
+S = MSparse() #This is a class that handle multiple CSR-formetted sparse matrices with the same sparsity pattern
+
+#Here we prepare the master matrix, i.e. the one that dictates the sparsity pattern
+N = 100
+A = random(N, N, density=0.1,format='csr')
+indices = A.indices
+indptr = A.indptr
+na = len(A.data)
+ 
+#We create 100 matrices and 100 b
+
+nbatch = 100
+data = np.random.random_sample((nbatch,na))
+for n in range(nbatch):
   A = sp.csr_matrix( (data[n],indices,indptr), shape=(N,N) )
   b = np.random.random_sample((N,))
-  S.add_csr_matrix(A,b)
-
-
- x,mem = S.inv()
- print(x)
- print(mem/1024/1024)
+  S.add_csr_matrix(A,b) #We add the matrix and the vector at each iteration
+  
+#Solve the system 
+x,mem = S.solve()
+print(x)
+print(mem/1024/1024) #We print the memory used on the device (in Mbytes)
  ```

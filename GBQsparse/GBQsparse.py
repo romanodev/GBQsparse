@@ -7,6 +7,7 @@ import pycuda
 from scipy.sparse import random
 import scipy.sparse as sp
 import numpy.random 
+import time
 
 
 
@@ -171,7 +172,7 @@ class MSparse(object):
                                  int(dcsrIndPtr.gpudata),
                                  int(dcsrColInd.gpudata),
                                  info)
-
+   t1 = time.time()
 
    _libcusolver.cusolverSpDcsrqrBufferInfoBatched(cuso_handle,
                            n,
@@ -207,6 +208,7 @@ class MSparse(object):
                                  int(w_buffer.gpudata))
                                  
                       
+   print(time.time()-t1)
    # destroy handles
    status = _libcusolver.cusolverSpDestroy(cuso_handle)
    #print('status: ' + str(status))

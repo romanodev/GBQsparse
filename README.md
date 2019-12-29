@@ -17,6 +17,12 @@ Background
 ==========
 This package solves multiple linear systems, i.e. $$\mathbf{A}_j \mathbf{x}_j = \mathbf{b}_j$$, where $$\mathbf{A}_j$$ are sparse matrices with the same sparsity pattern.
 
+Here are some useful resources:
+
+[Example of Batched QR factorization](https://devblogs.nvidia.com/parallel-direct-solvers-with-cusolver-batched-qr/)
+
+
+
 
 
 Example

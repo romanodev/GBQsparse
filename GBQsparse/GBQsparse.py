@@ -80,13 +80,15 @@ class MSparse(object):
   def __init__(self):
      
    self.init = False
-   self.data = np.empty(0)
-   self.b = np.empty(0)
+   #self.data = np.empty(0)
+   self.data = []
+   #self.b = np.empty(0)
+   self.b = []
    self.nbatch = 0
 
   def reset_b(self):
 
-    self.b = np.empty(0)
+   self.b = []
 
   def add_csr_matrix(self,A,b):
 
@@ -101,9 +103,10 @@ class MSparse(object):
       if not A.nnz == self.nnz:
         print('error')  
     
-    self.data = np.append(self.data,A.data)
-    self.b = np.append(self.b,b)
-
+    #self.data = np.append(self.data,A.data)
+    #self.b = np.append(self.b,b)
+    self.data +=list(A.data)
+    self.b +=list(b)
 
   #def to_gpu(self):
   # self.dcsrVal = gpuarray.to_gpu(self.data)
@@ -118,13 +121,13 @@ class MSparse(object):
    #### Prepare the matrix and parameters, copy to Device via gpuarray
 
    #Initialiation---
-   dcsrVal = gpuarray.to_gpu(self.data)
+   dcsrVal = gpuarray.to_gpu(np.array(self.data))
    dcsrColInd = gpuarray.to_gpu(self.indices)
    dcsrIndPtr = gpuarray.to_gpu(self.indptr)
    nbatch = ctypes.c_int(self.nbatch)
-   x = np.empty_like(self.b)
+   x = np.empty_like(np.array(self.b))
    dx = gpuarray.to_gpu(x)
-   db = gpuarray.to_gpu(self.b)
+   db = gpuarray.to_gpu(np.array(self.b))
    nnz = ctypes.c_int(self.nnz)
    shape = self.shape
    n = ctypes.c_int(shape[0])

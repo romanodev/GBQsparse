@@ -15,7 +15,7 @@ pip install GBQsparse
 
 Background
 ==========
-This package solves multiple linear systems, A x=b, that share same sparsity pattern.
+This package solves multiple linear systems, A x=b, sharing same sparsity pattern.
 
 Below are some of the resources I have used in writing GBQsparse:
 

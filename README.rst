@@ -4,7 +4,7 @@ GQsparse
 Batched QR factorization of sparse matrices on GPUs. Wrapper of the CUDA library cusolverSpDcsrqrsvBatched()
 
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1vxz6taqxNGwhbRNKO-uyEb4y6HZhZhHI]
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1vxz6taqxNGwhbRNKO-uyEb4y6HZhZhHI)
 
 
 

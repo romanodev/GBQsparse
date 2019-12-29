@@ -1,1 +1,1 @@
- from .gbqsparse import MSparse
+from .GBQsparse import MSparse

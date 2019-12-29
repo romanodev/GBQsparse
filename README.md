@@ -4,8 +4,8 @@ GBQsparse
 Batched QR factorization of sparse matrices on GPUs. Wrapper of the CUDA library cusolverSpDcsrqrsvBatched()
 
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]
-(https://colab.research.google.com/drive/1AQzt8f7Hy2kxgCSdqsD1nOIzH4bjK_n4)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1AQzt8f7Hy2kxgCSdqsD1nOIzH4bjK_n4)
+
 
 ========
 
@@ -15,7 +15,7 @@ pip install GBQsparse
 
 Background
 ==========
-This package solves multiple linear systems, i.e. $$ \mathbf{A}_j \mathbf{x}_j = \mathbf{b}_j $$, where $\mathbf{A}_j$ are sparse matrices with the same sparsity pattern.
+This package solves multiple linear systems, i.e. $$\mathbf{A}_j \mathbf{x}_j = \mathbf{b}_j$$, where $$\mathbf{A}_j$$ are sparse matrices with the same sparsity pattern.
 
 
 

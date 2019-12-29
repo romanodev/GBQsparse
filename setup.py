@@ -2,7 +2,7 @@ from setuptools import setup,find_packages
 import os
 
 setup(name='GBQsparse',
-      version='0.9.1',
+      version='0.9.2',
       description='Batched QR factorization of sparse matrices on GPUs. Wrapper of the CUDA library cusolverSpDcsrqrsvBatched()',
       author='Giuseppe Romano',
       author_email='romanog@mit.edu',
@@ -12,5 +12,5 @@ setup(name='GBQsparse',
                         'numpy',
                          ],
       license='GPLv2',\
-      packages = ['gbqsparse'],
+      packages = ['GBQsparse'],
       zip_safe=False)

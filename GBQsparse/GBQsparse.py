@@ -112,7 +112,7 @@ class MSparse(object):
   # self.nbatch = ctypes.c_int(self.nbatch)
 
 
-  def inv(self):
+  def solve(self):
 
  
    #### Prepare the matrix and parameters, copy to Device via gpuarray
@@ -233,7 +233,7 @@ if __name__ == "__main__":
   S.add_csr_matrix(A,b)
 
 
- x,mem = S.inv()
+ x,mem = S.solve()
  print(x)
  print(mem/1024/1024)
 

@@ -29,6 +29,9 @@ Here are some resources which have been very useful in writing GBQsparse:
 
 [GitHub Issue #1](https://github.com/lebedov/scikit-cuda/issues/184)
 
+you can use an inline formula $$\forall x \in R$$ like this one
+
+
 Example
 ========
 

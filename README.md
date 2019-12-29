@@ -15,9 +15,9 @@ pip install GBQsparse
 
 Background
 ==========
-This package solves multiple linear systems, i.e. $A_j x_j = b_j$, where $A_j$ are sparse matrices with the same sparsity pattern.
+This package solves multiple linear systems, A x=b, with the same sparsity pattern.
 
-Here are some resources which have been very useful in writing GBQsparse:
+Below are some of the resources I have used in writing GBQsparse:
 
 [High-level discussion of Batched QR factorization](https://devblogs.nvidia.com/parallel-direct-solvers-with-cusolver-batched-qr/)
 
@@ -25,11 +25,8 @@ Here are some resources which have been very useful in writing GBQsparse:
 
 [SKCUDA examples](https://scikit-cuda.readthedocs.io/en/latest/_modules/skcuda/cusolver.html)
 
-[StackOverflow #1](https://stackoverflow.com/questions/30460074/interfacing-cusolver-sparse-using-pycuda)
+[StackOverflow](https://stackoverflow.com/questions/30460074/interfacing-cusolver-sparse-using-pycuda)
 
-[GitHub Issue #1](https://github.com/lebedov/scikit-cuda/issues/184)
-
-you can use an inline formula $$\forall x \in R$$ like this one
 
 
 Example

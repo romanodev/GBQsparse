@@ -244,7 +244,7 @@ class MSparse(object):
    #print('status: ' + str(status))
   
    
-   return dx.reshape((self.nbatch,self.shape[0])),b2.value,cuso_handle,cusp_handle
+   return dx.reshape((self.nbatch,self.shape[0])),b2.value
 
  
 

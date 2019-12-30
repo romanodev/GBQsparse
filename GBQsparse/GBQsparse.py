@@ -81,9 +81,7 @@ class MSparse(object):
   def __init__(self):
      
    self.init = False
-   #self.data = np.empty(0)
    self.data = []
-   #self.b = np.empty(0)
    self.b = []
    self.nbatch = 0
 
@@ -91,9 +89,41 @@ class MSparse(object):
 
    self.b = []
 
+
+  def add_coo(self,rows,cols,n,m):
+
+    if self.init == False:
+     self.rows = rows 
+     self.cols = cols
+     A = sp.csr_matrix((np.ones_like(rows), (rows, cols)), shape=(n, m))
+     self.indices = A.indices
+     self.indptr = A.indptr
+     self.init = True
+     self.nnz = A.nnz
+     self.shape = A.shape
+    else:
+     print('Error: matrix already initiatied')
+
+
+  def add_data(self,A,b):
+   
+    (nbatch,nd) = np.shape(A)
+    if not nd == self.nnz:
+       print('sparsity error')  
+
+    self.nbatch = nbatch
+    for n in range(nbatch):
+
+     SS = sp.csr_matrix((A[n], (self.rows, self.cols)), shape=self.shape)
+
+     self.data +=list(SS.data)
+     self.b +=list(b[n])
+    
+
   def add_csr_matrix(self,A,b):
 
     self.nbatch +=1
+     
     if self.init == False:
       self.indices = A.indices
       self.indptr = A.indptr
@@ -104,8 +134,6 @@ class MSparse(object):
       if not A.nnz == self.nnz:
         print('error')  
     
-    #self.data = np.append(self.data,A.data)
-    #self.b = np.append(self.b,b)
     self.data +=list(A.data)
     self.b +=list(b)
 
@@ -208,7 +236,7 @@ class MSparse(object):
                                  int(w_buffer.gpudata))
                                  
                       
-   print(time.time()-t1)
+   #print(time.time()-t1)
    # destroy handles
    status = _libcusolver.cusolverSpDestroy(cuso_handle)
    #print('status: ' + str(status))
@@ -216,7 +244,7 @@ class MSparse(object):
    #print('status: ' + str(status))
   
    
-   return dx.reshape((self.nbatch,self.shape[0])),b2.value
+   return dx.reshape((self.nbatch,self.shape[0])),b2.value,cuso_handle,cusp_handle
 
  
 

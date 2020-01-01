@@ -1,21 +1,18 @@
 import pycuda.gpuarray as gpuarray
-import numpy as np
-import ctypes
+import pycuda.driver as cuda
 import pycuda.autoinit
-from pycuda.driver import Device
-import pycuda
-from scipy.sparse import random
+import numpy as np
 import scipy.sparse as sp
-import numpy.random 
-import time
+import ctypes
+import sparseqr
 
 
-
-# #### wrap the cuSOLVER cusolverSpDcsrqrsvBatched() using ctypes
+# #### wrap the cuSOLVER cusolverSpDcsrlsvqr() using ctypes
 
 # cuSparse
 _libcusparse = ctypes.cdll.LoadLibrary('libcusparse.so')
-
+# cuSOLVER
+_libcusolver = ctypes.cdll.LoadLibrary('libcusolver.so')
 
 _libcusparse.cusparseCreate.restype = int
 _libcusparse.cusparseCreate.argtypes = [ctypes.c_void_p]
@@ -23,11 +20,8 @@ _libcusparse.cusparseCreate.argtypes = [ctypes.c_void_p]
 _libcusparse.cusparseDestroy.restype = int
 _libcusparse.cusparseDestroy.argtypes = [ctypes.c_void_p]
 
-
-
-
-# cuSOLVER
-_libcusolver = ctypes.cdll.LoadLibrary('libcusolver.so')
+_libcusparse.cusparseCreateMatDescr.restype = int
+_libcusparse.cusparseCreateMatDescr.argtypes = [ctypes.c_void_p]
 
 _libcusolver.cusolverSpCreate.restype = int
 _libcusolver.cusolverSpCreate.argtypes = [ctypes.c_void_p]
@@ -35,8 +29,10 @@ _libcusolver.cusolverSpCreate.argtypes = [ctypes.c_void_p]
 _libcusolver.cusolverSpDestroy.restype = int
 _libcusolver.cusolverSpDestroy.argtypes = [ctypes.c_void_p]
 
-_libcusolver.cusolverSpXcsrqrAnalysisBatched.restype = int
+_libcusolver.cusolverSpCreateCsrqrInfo.restype = int
+_libcusolver.cusolverSpCreateCsrqrInfo.argtypes = [ctypes.c_void_p]
 
+_libcusolver.cusolverSpXcsrqrAnalysisBatched.restype = int
 _libcusolver.cusolverSpXcsrqrAnalysisBatched.argtypes= [ctypes.c_void_p,
                                             ctypes.c_int,
                                             ctypes.c_int,
@@ -47,6 +43,8 @@ _libcusolver.cusolverSpXcsrqrAnalysisBatched.argtypes= [ctypes.c_void_p,
                                             ctypes.c_void_p() #info
                                             ]
 
+
+_libcusolver.cusolverSpDcsrqrBufferInfoBatched.restype = int
 _libcusolver.cusolverSpDcsrqrBufferInfoBatched.argtypes= [ctypes.c_void_p,
                                             ctypes.c_int,
                                             ctypes.c_int,
@@ -62,6 +60,22 @@ _libcusolver.cusolverSpDcsrqrBufferInfoBatched.argtypes= [ctypes.c_void_p,
                                             ]
 
 
+_libcusolver.cusolverSpDcsrlsvqr.restype = int
+_libcusolver.cusolverSpDcsrlsvqr.argtypes= [ctypes.c_void_p,
+                                            ctypes.c_int,
+                                            ctypes.c_int,
+                                            ctypes.c_void_p,
+                                            ctypes.c_void_p,
+                                            ctypes.c_void_p,
+                                            ctypes.c_void_p,
+                                            ctypes.c_void_p,
+                                            ctypes.c_double,
+                                            ctypes.c_int,
+                                            ctypes.c_void_p,
+                                            ctypes.c_void_p]
+
+
+_libcusolver.cusolverSpDcsrqrsvBatched.restype = int
 _libcusolver.cusolverSpDcsrqrsvBatched.argtypes= [ctypes.c_void_p,
                                             ctypes.c_int,
                                             ctypes.c_int,
@@ -76,197 +90,142 @@ _libcusolver.cusolverSpDcsrqrsvBatched.argtypes= [ctypes.c_void_p,
                                             ctypes.c_void_p(),
                                             ctypes.c_void_p
                                             ]
+
+_libcusparse.cusparseDestroy.restype = int
+_libcusparse.cusparseDestroy.argtypes = [ctypes.c_void_p]
+_libcusolver.cusolverSpDestroy.restype = int
+_libcusolver.cusolverSpDestroy.argtypes = [ctypes.c_void_p]
+
+#create cusparse handle
+_cusp_handle = ctypes.c_void_p()
+status = _libcusparse.cusparseCreate(ctypes.byref(_cusp_handle))
+print('status: ' + str(status))
+cusp_handle = _cusp_handle.value
+
+
+#create cusolver handle
+_cuso_handle = ctypes.c_void_p()
+status = _libcusolver.cusolverSpCreate(ctypes.byref(_cuso_handle))
+print('status: ' + str(status))
+cuso_handle = _cuso_handle.value
+
+print('cusp handle: ' + str(cusp_handle))
+print('cuso handle: ' + str(cuso_handle))
+
 class MSparse(object):
 
-  def __init__(self):
-     
-   self.init = False
-   self.data = []
-   self.b = []
-   self.nbatch = 0
+  def __init__(self,row,col,n,m):
 
-  def reset_b(self):
-
-   self.b = []
-
-
-  def add_coo(self,rows,cols,n,m):
-
-    if self.init == False:
-     self.rows = rows 
-     self.cols = cols
-     A = sp.csr_matrix((np.ones_like(rows), (rows, cols)), shape=(n, m))
-     self.indices = A.indices
-     self.indptr = A.indptr
-     self.init = True
-     self.nnz = A.nnz
-     self.shape = A.shape
-    else:
-     print('Error: matrix already initiatied')
-
-
-  def add_data(self,A,b):
-   
-    (nbatch,nd) = np.shape(A)
-    if not nd == self.nnz:
-       print('sparsity error')  
-
-    self.nbatch = nbatch
-    for n in range(nbatch):
-
-     SS = sp.csr_matrix((A[n], (self.rows, self.cols)), shape=self.shape)
-
-     self.data +=list(SS.data)
-     self.b +=list(b[n])
+    A = sp.coo_matrix( (np.ones(len(row)),(row,col)), shape=(n,m) )
+    _, _, E, rank = sparseqr.qr(A)
+    self.P = sparseqr.permutation_vector_to_matrix(E) #coo
+    self.P = sp.eye(n)
+    S = (A*self.P).tocsr()
+    self.data = []
+    self.b = []
+    self.m = ctypes.c_int(n)
+    self.n = ctypes.c_int(m)
+    self.nnz = ctypes.c_int(A.nnz)
+    self.dcsrColInd = gpuarray.to_gpu(S.indices)
+    self.dcsrIndPtr = gpuarray.to_gpu(S.indptr)
+    self.col = col
+    self.row = row
     
 
-  def add_csr_matrix(self,A,b):
-
-    self.nbatch +=1
-     
-    if self.init == False:
-      self.indices = A.indices
-      self.indptr = A.indptr
-      self.shape = A.shape
-      self.init = True 
-      self.nnz = A.nnz
-    else:
-      if not A.nnz == self.nnz:
-        print('error')  
+  def add_LHS(self,A):
     
-    self.data +=list(A.data)
-    self.b +=list(b)
-
-  #def to_gpu(self):
-  # self.dcsrVal = gpuarray.to_gpu(self.data)
-  # self.dcsrColInd = gpuarray.to_gpu(self.indices)
-  # self.dcsrIndPtr = gpuarray.to_gpu(self.indptr)
-  # self.nbatch = ctypes.c_int(self.nbatch)
-
-
-  def solve(self):
-
+     (nbatch,_) = np.shape(A)
+     data = []
+     for B in A:
+       C  = sp.csr_matrix((B,(self.row,self.col)), shape=(self.n.value,self.m.value) )
+       C *= self.P     
+       data += list(C.data)
  
-   #### Prepare the matrix and parameters, copy to Device via gpuarray
+     self.dcsrVal = gpuarray.to_gpu(np.array(data))
+     #self.dcsrVal = gpuarray.to_gpu(A.flatten())
+     self.nbatch = ctypes.c_int(nbatch)
+     self.dx = pycuda.gpuarray.empty(self.n.value*self.nbatch.value,dtype=np.float64) 
+     self.db = pycuda.gpuarray.empty(self.n.value*self.nbatch.value,dtype=np.float64)
 
-   #Initialiation---
-   dcsrVal = gpuarray.to_gpu(np.array(self.data))
-   dcsrColInd = gpuarray.to_gpu(self.indices)
-   dcsrIndPtr = gpuarray.to_gpu(self.indptr)
-   nbatch = ctypes.c_int(self.nbatch)
-   x = np.empty_like(np.array(self.b))
-   dx = gpuarray.to_gpu(x)
-   db = gpuarray.to_gpu(np.array(self.b))
-   nnz = ctypes.c_int(self.nnz)
-   shape = self.shape
-   n = ctypes.c_int(shape[0])
-   m = ctypes.c_int(shape[1])
-   #-------------------------
+     self.descrA = ctypes.c_void_p() 
+     self.info = ctypes.c_void_p()
+     b1 = ctypes.c_int()
+     b2 = ctypes.c_int()
+     status = _libcusparse.cusparseCreateMatDescr(ctypes.byref(self.descrA))
+     _libcusolver.cusolverSpCreateCsrqrInfo(ctypes.byref(self.info))
+    
+     _libcusolver.cusolverSpXcsrqrAnalysisBatched(cuso_handle,
+                                 self.n,
+                                 self.m,
+                                 self.nnz,
+                                 self.descrA,
+                                 int(self.dcsrIndPtr.gpudata),
+                                 int(self.dcsrColInd.gpudata),
+                                 self.info)
 
-   b1 = ctypes.c_int()
-   b2 = ctypes.c_int()
-
-   #create cusparse handle
-   _cusp_handle = ctypes.c_void_p()
-   status = _libcusparse.cusparseCreate(ctypes.byref(_cusp_handle))
-   #print('status: ' + str(status))
-   cusp_handle = _cusp_handle.value
-
-   #create MatDescriptor
-   descrA = ctypes.c_void_p()
-   status = _libcusparse.cusparseCreateMatDescr(ctypes.byref(descrA))
-   #print('status: ' + str(status))
-
-   #create info
-   info = ctypes.c_void_p()
-   status = _libcusolver.cusolverSpCreateCsrqrInfo(ctypes.byref(info))
-   #print('status: ' + str(status))
-
-   #create cusolver handle
-   _cuso_handle = ctypes.c_void_p()
-   status = _libcusolver.cusolverSpCreate(ctypes.byref(_cuso_handle))
-   #print('status: ' + str(status))
-   cuso_handle = _cuso_handle.value
-
-   #print('cusp handle: ' + str(cusp_handle))
-   #print('cuso handle: ' + str(cuso_handle))
-
-
-   _libcusolver.cusolverSpXcsrqrAnalysisBatched(cuso_handle,
-                                 n,
-                                 m,
-                                 nnz,
-                                 descrA,
-                                 int(dcsrIndPtr.gpudata),
-                                 int(dcsrColInd.gpudata),
-                                 info)
-   t1 = time.time()
-
-   _libcusolver.cusolverSpDcsrqrBufferInfoBatched(cuso_handle,
-                           n,
-                           m,
-                           nnz,
-                           descrA,
-                           int(dcsrVal.gpudata),
-                           int(dcsrIndPtr.gpudata),
-                           int(dcsrColInd.gpudata),
-                           nbatch,
-                           info,
+     _libcusolver.cusolverSpDcsrqrBufferInfoBatched(cuso_handle,
+                           self.n,
+                           self.m,
+                           self.nnz,
+                           self.descrA,
+                           int(self.dcsrVal.gpudata),
+                           int(self.dcsrIndPtr.gpudata),
+                           int(self.dcsrColInd.gpudata),
+                           self.nbatch,
+                           self.info,
                            ctypes.byref(b1),
                            ctypes.byref(b2)
                            );
 
-
-
-   w_buffer = gpuarray.zeros(b2.value, dtype=dcsrVal.dtype) 
-
-    
-   _libcusolver.cusolverSpDcsrqrsvBatched(cuso_handle,
-                                 n,
-                                 m,
-                                 nnz,
-                                 descrA,
-                                 int(dcsrVal.gpudata),
-                                 int(dcsrIndPtr.gpudata),
-                                 int(dcsrColInd.gpudata),
-                                 int(db.gpudata),
-                                 int(dx.gpudata),
-                                 nbatch,
-                                 info,
-                                 int(w_buffer.gpudata))
-                                 
-                      
-   #print(time.time()-t1)
-   # destroy handles
-   status = _libcusolver.cusolverSpDestroy(cuso_handle)
-   #print('status: ' + str(status))
-   status = _libcusparse.cusparseDestroy(cusp_handle)
-   #print('status: ' + str(status))
-  
-   
-   return dx.reshape((self.nbatch,self.shape[0])),b2.value
-
+     self.w_buffer = gpuarray.zeros(b2.value, dtype=self.dcsrVal.dtype) 
  
+
+  def add_RHS(self,B):
+
+     self.db.set(self.P.dot(B.T).T.flatten())
+
+  def solve(self):
+
+
+    _libcusolver.cusolverSpDcsrqrsvBatched(cuso_handle,
+                                 self.n,
+                                 self.m,
+                                 self.nnz,
+                                 self.descrA,
+                                 int(self.dcsrVal.gpudata),
+                                 int(self.dcsrIndPtr.gpudata),
+                                 int(self.dcsrColInd.gpudata),
+                                 int(self.db.gpudata),
+                                 int(self.dx.gpudata),
+                                 self.nbatch,
+                                 self.info,
+                                 int(self.w_buffer.gpudata))
+
+    return self.dx.reshape((self.nbatch.value,self.n.value))
+
+
+  def free_memory(self):
+    # destroy handles
+    status = _libcusolver.cusolverSpDestroy(cuso_handle)
+    print('status: ' + str(status))
+    status = _libcusparse.cusparseDestroy(cusp_handle)
+    print('status: ' + str(status))
 
 
 if __name__ == "__main__": 
 
- N = 100
- A = random(N, N, density=0.1,format='csr')
+ val = np.arange(1,5,dtype=np.float64)
+ col = np.arange(0,4,dtype=np.int32)
+ row = np.arange(0,4,dtype=np.int32)
 
- indices = A.indices
- indptr = A.indptr
- na = len(A.data)
- nbatch = 100
- S = MSparse()
- data = np.random.random_sample((nbatch,na))
- for n in range(nbatch): 
-  A = sp.csr_matrix( (data[n],indices,indptr), shape=(N,N) )
-  b = np.random.random_sample((N,))
-  S.add_csr_matrix(A,b)
+ M = MSparse(row,col,4,4)
 
-
- x,mem = S.solve()
+ M.add_LHS(np.array([[1,2,3,4],[1,2,3,4]],dtype=np.float64))
+ M.add_RHS(np.array([[1,1,1,1],[1,1,1,1]],dtype=np.float64))
+ x = M.solve() 
  print(x)
- print(mem/1024/1024)
+ M.free_memory()
+
+
+
 

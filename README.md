@@ -34,26 +34,15 @@ Example
 
 ```python
 
-#This is a class that handles multiple CSR-formetted sparse matrices with the same sparsity pattern
-S = MSparse() 
+ val = np.arange(1,5,dtype=np.float64)
+ col = np.arange(0,4,dtype=np.int32)
+ row = np.arange(0,4,dtype=np.int32)
 
-#Here we prepare the master matrix, i.e. the one that dictates the sparsity pattern
-N = 100
-A = random(N, N, density=0.1,format='csr')
-indices = A.indices
-indptr = A.indptr
-na = len(A.data)
- 
-#We create 100 random matrices and ``b'' s
-nbatch = 100
-data = np.random.random_sample((nbatch,na))
-for n in range(nbatch):
-  A = sp.csr_matrix( (data[n],indices,indptr), shape=(N,N) )
-  b = np.random.random_sample((N,))
-  S.add_csr_matrix(A,b) #We add the matrix and the vector at each iteration
-  
-#Solve the system 
-x,mem = S.solve()
-print(x)
-print(mem/1024/1024) #We print the memory used on the device (in Mbytes)
+ M = MSparse(row,col,4,4)
+
+ M.add_LHS(np.array([[1,2,3,4],[1,2,3,4]],dtype=np.float64))
+ M.add_RHS(np.array([[1,1,1,1],[1,1,1,1]],dtype=np.float64))
+ x = M.solve()
+ print(x)
+ M.free_memory()
  ```

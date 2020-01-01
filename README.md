@@ -10,6 +10,7 @@ INSTALL
 ========
 
 ```bash
+apt-get install libsuitesparse-dev 
 pip install GBQsparse
 ```
 

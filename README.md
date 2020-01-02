@@ -34,16 +34,37 @@ Example
 ========
 
 ```python
+ 
+    N = 10
+    nbatch = 10
+    m = sp.diags([1, -2, 1], [-1, 0, 1], shape=(N, N),format='coo')
 
- val = np.arange(1,5,dtype=np.float64)
- col = np.arange(0,4,dtype=np.int32)
- row = np.arange(0,4,dtype=np.int32)
+    A = np.random.random_sample((nbatch,m.nnz))
+    B = np.random.random_sample((nbatch,N))
 
- M = MSparse(row,col,4,4)
+    m = MSparse(m.row,m.col,N,nbatch,reordering=True)
 
- M.add_LHS(np.array([[1,2,3,4],[1,2,3,4]],dtype=np.float64))
- M.add_RHS(np.array([[1,1,1,1],[1,1,1,1]],dtype=np.float64))
- x = M.solve()
- print(x)
- M.free_memory()
+    m.add_LHS(A)
+
+    t1 = time.time()
+    X = m.solve(B)
+    t2 = time.time()
+
+    m.free_memory()
+
+    xs = []
+    for i in range(nbatch):
+      S = sp.csr_matrix((A[i],(m.row,m.col)),shape=(N,N),dtype=float)
+      x = sla.spsolve(S,B[i])
+      xs.append(x)
+    xs=np.array(xs)
+
+    t3 = time.time()
+    print(t2-t1)
+    print(t3-t2)
+
+    print(np.allclose(xs,X,rtol=1e-01,atol=1e-1))
+
+
+
  ```

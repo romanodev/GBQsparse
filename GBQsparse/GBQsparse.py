@@ -113,7 +113,7 @@ class MSparse(object):
      self.P = sparseqr.permutation_vector_to_matrix(E) #coo
      A = (A*self.P.tocsr()).sorted_indices()
     else:
-     A = sp.csr_matrix( (np.ones(len(col)),C.indices,C.indptr), shape=(d,d),dtype=float)
+     A = sp.csr_matrix( (np.ones(len(col)),A.indices,A.indptr), shape=(d,d),dtype=float)
    
 
 
@@ -219,13 +219,11 @@ class MSparse(object):
     
     x = x.reshape((self.nbatch.value,self.n.value))
 
-    t1 = time.time()
-    #y = np.einsum('ij,kj->ki',self.P.todense(),x)
-
-    y = np.array([self.P.dot(x[n]) for n in range(self.nbatch.value)])
+    if self.reordering:
+     x = np.array([self.P.dot(x[n]) for n in range(self.nbatch.value)])
 
 
-    return y
+    return x
 
     # Return result
 

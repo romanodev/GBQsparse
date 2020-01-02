@@ -113,7 +113,7 @@ class MSparse(object):
      self.P = sparseqr.permutation_vector_to_matrix(E) #coo
      A = (A*self.P.tocsr()).sorted_indices()
     else:
-     A = sp.csr_matrix( (np.ones(len(col)),A.indices,A.indptr), shape=(d,d),dtype=float)
+     A = sp.csr_matrix( (np.ones(len(col)),(row,col)), shape=(d,d),dtype=float)
    
 
 
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     A = np.random.random_sample((nbatch,m.nnz))
     B = np.random.random_sample((nbatch,N))
 
-    m = MSparse(m.row,m.col,N,nbatch,reordering=True)
+    m = MSparse(m.row,m.col,N,nbatch,reordering=False)
 
     m.add_LHS(A)
    

@@ -34,37 +34,38 @@ Example
 ========
 
 ```python
- 
-    N = 10
-    nbatch = 10
-    m = sp.diags([1, -2, 1], [-1, 0, 1], shape=(N, N),format='coo')
+from GBQsparse import MSparse
+import scipy.sparse as sp
+import numpy as np
+import time
+import scipy.sparse.linalg as sla
 
-    A = np.random.random_sample((nbatch,m.nnz))
-    B = np.random.random_sample((nbatch,N))
+N = 10
+nbatch = 10
+m = sp.diags([1, -2, 1], [-1, 0, 1], shape=(N, N),format='coo')
 
-    m = MSparse(m.row,m.col,N,nbatch,reordering=True)
+A = np.random.random_sample((nbatch,m.nnz))
+B = np.random.random_sample((nbatch,N))
 
-    m.add_LHS(A)
+m = MSparse(m.row,m.col,N,nbatch,reordering=True)
 
-    t1 = time.time()
-    X = m.solve(B)
-    t2 = time.time()
+m.add_LHS(A)
 
-    m.free_memory()
+t1 = time.time()
+X = m.solve(B)
+t2 = time.time()
 
-    xs = []
-    for i in range(nbatch):
+m.free_memory()
+
+xs = []
+for i in range(nbatch):
       S = sp.csr_matrix((A[i],(m.row,m.col)),shape=(N,N),dtype=float)
       x = sla.spsolve(S,B[i])
       xs.append(x)
-    xs=np.array(xs)
+xs=np.array(xs)
 
-    t3 = time.time()
-    print(t2-t1)
-    print(t3-t2)
-
-    print(np.allclose(xs,X,rtol=1e-01,atol=1e-1))
-
-
-
+t3 = time.time()
+print(t2-t1)
+print(t3-t2)
+print(np.allclose(xs,X,rtol=1e-01,atol=1e-1))
  ```

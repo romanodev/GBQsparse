@@ -224,7 +224,6 @@ class MSparse(object):
 
     y = np.array([self.P.dot(x[n]) for n in range(self.nbatch.value)])
 
-    print(time.time()-t1)
 
     return y
 

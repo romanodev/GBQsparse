@@ -101,16 +101,15 @@ class MSparse(object):
    else:
     #Experimental reordering
     if self.reordering:
-     A = sp.coo_matrix( (np.ones(len(a2)),(a1,a2)), shape=(d,d),dtype=float)
+     A = sp.coo_matrix( (np.ones(len(a1)),(a1,a2)), shape=(d,d),dtype=float)
      _, _, E, rank = sparseqr.qr(A)
      self.P = sparseqr.permutation_vector_to_matrix(E) #coo
-    
-     Acsr = (A*self.P.tocsr()).sorted_indices()
+     A = (A*self.P.tocsr()).sorted_indices()
     else:
-     Acsr = sp.csr_matrix( (np.ones(len(a2)),(a1,a2)), shape=(d,d),dtype=float)
+     A = sp.csr_matrix( (np.ones(len(a2)),(a1,a2)), shape=(d,d),dtype=float)
    
-    self.dcsrIndPtr = gpuarray.to_gpu(Acsr.indptr)
-    self.dcsrColInd = gpuarray.to_gpu(Acsr.indices)
+    self.dcsrColInd = gpuarray.to_gpu(A.indices)
+    self.dcsrIndPtr = gpuarray.to_gpu(A.indptr)
     self.n = ctypes.c_int(d) 
     self.m = ctypes.c_int(d)  
     self.nbatch = ctypes.c_int(k)
@@ -118,26 +117,31 @@ class MSparse(object):
     self.col = a2
     self.nnz = ctypes.c_int(len(a2))
 
-   # create cusparse handle
-   self.descrA = ctypes.c_void_p()
-   self.info = ctypes.c_void_p()
-   _libcusolver.cusolverSpCreateCsrqrInfo(ctypes.byref(self.info))
+   self.init_handles()
+    
+  def init_handles(self):
 
-   # create MatDescriptor
-   status = _libcusparse.cusparseCreateMatDescr(ctypes.byref(self.descrA))
-   assert(status == 0)
+    self.descrA = ctypes.c_void_p()
+    self.info = ctypes.c_void_p()
+    # create cusparse handle
+    _cusp_handle = ctypes.c_void_p()
+    status = _libcusparse.cusparseCreate(ctypes.byref(_cusp_handle))
+    assert(status == 0)
+    self.cusp_handle = _cusp_handle.value
 
-   _cusp_handle = ctypes.c_void_p()
-   status = _libcusparse.cusparseCreate(ctypes.byref(_cusp_handle))
-   assert(status == 0)
-   self.cusp_handle = _cusp_handle.value
+    # create MatDescriptor
+    status = _libcusparse.cusparseCreateMatDescr(ctypes.byref(self.descrA))
+    assert(status == 0)
 
-   _cuso_handle = ctypes.c_void_p()
-   status = _libcusolver.cusolverSpCreate(ctypes.byref(_cuso_handle))
-   assert(status == 0)
-   self.cuso_handle = _cuso_handle.value
+    #create cusolver handle
+    _cuso_handle = ctypes.c_void_p()
+    status = _libcusolver.cusolverSpCreate(ctypes.byref(_cuso_handle))
+    assert(status == 0)
+    self.cuso_handle = _cuso_handle.value
 
-   _libcusolver.cusolverSpXcsrqrAnalysisBatched(self.cuso_handle,
+    _libcusolver.cusolverSpCreateCsrqrInfo(ctypes.byref(self.info))
+     
+    _libcusolver.cusolverSpXcsrqrAnalysisBatched(self.cuso_handle,
                                  self.n,
                                  self.m,
                                  self.nnz,
@@ -146,16 +150,22 @@ class MSparse(object):
                                  int(self.dcsrColInd.gpudata),
                                  self.info)
 
+    self.dx = pycuda.gpuarray.empty(self.n.value*self.nbatch.value,dtype=float) 
+    self.db = pycuda.gpuarray.empty(self.n.value*self.nbatch.value,dtype=float)
+
 
   def add_LHS(self,data):
 
-   self.data = data.astype(np.float64)
    if self.new:
-    self.dcsrVal = gpuarray.to_gpu(data.astype(np.float64)).ravel()
+
+    self.dcsrVal = gpuarray.to_gpu(data.ravel())
+ 
    else:
+
     global_data = []
     for n in range(self.nbatch.value):
      Acsr = sp.csr_matrix((data[n],(self.row,self.col)),shape=(self.n.value,self.m.value),dtype=float)
+     #print(np.allclose(Acsr.todense(),Acsr.dot(self.P).todense()))
      if self.reordering:
       Acsr = (Acsr * self.P).sorted_indices()
      global_data.append(Acsr.data)
@@ -164,8 +174,7 @@ class MSparse(object):
 
    b1 = ctypes.c_int()
    b2 = ctypes.c_int()
-  
- 
+
    _libcusolver.cusolverSpDcsrqrBufferInfoBatched(self.cuso_handle,
                            self.n,
                            self.m,
@@ -181,42 +190,12 @@ class MSparse(object):
                            );
 
    self.w_buffer = gpuarray.zeros(b2.value, dtype=self.dcsrVal.dtype) 
-   print(b2.value/1024/1024)
+
 
   def solve(self,b):
-    #b = np.array(b)
-    b = b.astype(np.float64)
-    self.b = b
 
-    #Solve scipy
-    #xs = []
-    #for i in range(self.nbatch.value):
-      #S = sp.csr_matrix((self.data[i]/max(self.data[i]),self.dcsrColInd.get(),self.dcsrIndPtr.get()),shape=(self.n.value,self.n.value),dtype=float)
-      #x = sp.linalg.spsolve(S,self.b[i]/max(self.data[i]))
-    #  S = sp.csr_matrix((self.data[i],self.dcsrColInd.get(),self.dcsrIndPtr.get()),shape=(self.n.value,self.n.value),dtype=np.float32)
-    #  x = sp.linalg.spsolve(S,self.b[i])
-    #  xs.append(x)
-    #print(np.min(xs),np.max(xs))
-    #  print(min(x),max(x))
-    #  print(x)
-    #quit()
-
-
-    transfer = False
-    if isinstance(b, np.ndarray):
-     b = gpuarray.to_gpu(b.astype(np.float64)).ravel()
-     transfer = True 
-    dx = pycuda.gpuarray.empty_like(b,np.float64) 
+    self.db.set(b.flatten())
     
-
-    #print(self.n) 
-    #print(self.m) 
-    #print(self.nbatch) 
-    #print(self.nnz) 
-    #print(len(self.dcsrVal)) 
-    #print(len(self.dcsrColInd)) 
-    #print(len(self.dcsrIndPtr)) 
-    t4 = time.time()
     res = _libcusolver.cusolverSpDcsrqrsvBatched(self.cuso_handle,
                                  self.n,
                                  self.m,
@@ -225,36 +204,21 @@ class MSparse(object):
                                  int(self.dcsrVal.gpudata),
                                  int(self.dcsrIndPtr.gpudata),
                                  int(self.dcsrColInd.gpudata),
-                                 int(b.gpudata),
-                                 int(dx.gpudata),
+                                 int(self.db.gpudata),
+                                 int(self.dx.gpudata),
                                  self.nbatch,
                                  self.info,
                                  int(self.w_buffer.gpudata))
-   
-    # Destroy handles
-    #status = _libcusolver.cusolverSpDestroy(self.cuso_handle)
-    #assert(status == 0)
-    #status = _libcusparse.cusparseDestroy(self.cusp_handle)
-    #assert(status == 0)
 
-    t5 = time.time()
-    print(t5-t4)
-    print(dx)
-    #print(gpuarray.min(dx),gpuarray.max(dx))   
-    xx= dx.get()
+    x = self.dx.get()  # Get result as numpy array
     
-    aa = xx.reshape((self.nbatch.value,self.n.value))
-    #print(np.min(aa,axis=1))
-    #print(np.min(aa,axis=0))
+    x = x.reshape((self.nbatch.value,self.n.value))
 
-    #if transfer:
-    # dx = dx.get()  # Get result as numpy array
-
-    #if self.reordering:
-    # dx = np.array([self.P.dot(dx[n]) for n in range(self.nbatch.value)])
+    if self.reordering:
+     x = np.array([self.P.dot(x[n]) for n in range(self.nbatch.value)])
 
 
-    return aa
+    return x
 
     # Return result
 
@@ -271,8 +235,8 @@ class MSparse(object):
 # Test
 if __name__ == '__main__':
 
-  NN = [10]
-  BB = [10]
+  NN = [100]
+  BB = [100]
   tgpu = np.zeros((3,3))
   tcpu = np.zeros((3,3))
   for n,N in enumerate(NN):
@@ -288,28 +252,42 @@ if __name__ == '__main__':
     #-----------------------------------
     row  = m.row
     col  = m.col
-    m = MSparse(row,col,N,nbatch,reordering=False)
+    m = MSparse(row,col,N,nbatch)
     m.add_LHS(A)
-    X = m.solve(B)
-    #t1 = time.time()
+    X1 = m.solve(B)
+    t1 = time.time()
     m.free_memory()
     #-----------------------------------
-    #Acsr = sp.csr_matrix((np.arange(len(m.row)),(m.row,m.col)),shape=(N,N),dtype=np.int32)
-    #rot = Acsr.data
-    #indptr  = Acsr.indptr
-    #indices = Acsr.indices
-    #m = MSparse(indptr,indices,N,nbatch,new=True)
+    Acsr = sp.csr_matrix((np.arange(len(m.row)),(m.row,m.col)),shape=(N,N),dtype=np.int32)
+    rot = Acsr.data
+    indptr  = Acsr.indptr
+    indices = Acsr.indices
+    m = MSparse(indptr,indices,N,nbatch,new=True)
     
-    #A = np.array([ A[n,rot]  for n in range(nbatch)])
-    #m.add_LHS(A)
-    #X2 = m.solve(B)
-    #print(np.allclose(X1,X2))
+    A = np.array([ A[n,rot]  for n in range(nbatch)])
+    m.add_LHS(A)
+    X2 = m.solve(B)
+    print(np.allclose(X1,X2))
  
-    #m.free_memory()
+    m.free_memory()
 
     #--------------------
-    #quit()
+    quit()
 
+    A = np.random.random_sample((nbatch,m.nnz))
+    B = np.random.random_sample((nbatch,N))
+
+    
+    
+    
+
+   
+
+    
+
+
+
+    quit()
 
     t2 = time.time()
     xs = []
@@ -329,11 +307,10 @@ if __name__ == '__main__':
 
     t3 = time.time()
 
-    #tgpu[n,b] = t2-t1 
-    #tcpu[n,b] = t3-t2
-    print(X)   
-    print(xs)   
-    print(np.allclose(xs,X,rtol=1e-1,atol=1e-1))
+    tgpu[n,b] = t2-t1 
+    tcpu[n,b] = t3-t2
+    
+    print(np.allclose(xs,X,rtol=1e-01,atol=1e-1))
 
   #print(tgpu)
   #print(tcpu)

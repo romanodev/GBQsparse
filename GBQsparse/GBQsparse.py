@@ -14,7 +14,7 @@ import time
 import numpy.linalg as la
 import scipy.sparse.linalg as sla
 import sys
-import sparseqr
+#import sparseqr
 import scikits.umfpack as um
 
 
